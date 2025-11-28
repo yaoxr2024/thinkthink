@@ -1,2 +1,5 @@
 *.env
 tmp/
+yao/
+thinkthinksyn/history_rag/data/
+thinkthinksyn/history_rag/utils/
