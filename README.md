@@ -1,3 +1,6 @@
+## `history_rag` 目录中的改动
+在 **`thinkthinksyn/history_rag`** 目录中进行了以下改动
+
 #### Client for accessing ThinkThinkSyn AI API Service.
 
 Example:
