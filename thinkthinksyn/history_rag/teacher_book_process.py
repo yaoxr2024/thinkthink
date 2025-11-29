@@ -9,7 +9,7 @@ import asyncio
 from typing import List, Dict
 
 from docx import Document
-from pydantic import BaseModel, Field, TypeAdapter # type: ignore
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError # type: ignore
 import orjson
 from aiohttp import ClientResponseError  # 用于重试时捕获 HTTP 错误
 
@@ -48,13 +48,14 @@ class TeacherChunk(BaseModel):
 
 # ========= 2. 按“必修 第一册 P.xx”拆分 docx =========
 # 同时保留“必修 第一册 P.76”这个完整字符串
-# 注意：教师用书里可能是“册”也可能是“冊”，这里都兼容.大小写的p也都支持
+# 注意：1.教师用书里可能是“册”也可能是“冊”，这里都兼容。
+#      2. 大小写的p也都支持。
+#       3.支持页码和p和点之间有空格，这破教材。
 
 PAGE_PATTERN = re.compile(
-    r"(必修\s*第[一二三四五六七八九十]+\s*[\u518c\u518a]\s*[pP]\.(\d+))"
-)
-# group(1) = "必修 第一册/冊 P.76"
-# group(2) = "76"
+    r"(必修\s*第[一二三四五六七八九十]+\s*[\u518c\u518a]\s*[pP]\s*\.\s*(\d+))"
+    )
+
 
 
 def _iter_block_items(parent):
@@ -74,6 +75,16 @@ def _iter_block_items(parent):
             yield _Paragraph(child, parent)
         elif isinstance(child, CT_Tbl):
             yield _Table(child, parent)
+
+# 清洗所有 JSON 不允许的控制字符（0x00-0x1F）
+CONTROL_CHARS_RE = re.compile(r"[\x00-\x1F]")
+
+def clean_control_chars(s: str) -> str:
+    """
+    删除 JSON 不允许的控制字符（0x00-0x1F），包括 \n \r \t 在内全部替换成空格。
+    避免 LLM 返回中夹带奇怪的不可见字符导致 JSON 解析失败。
+    """
+    return CONTROL_CHARS_RE.sub(" ", s)
 
 
 def split_docx_by_page(docx_path: str) -> Dict[int, Dict[str, str]]:
@@ -207,8 +218,19 @@ async def extract_from_teacher(page_num: int, page_label: str, teacher_text: str
         model_filter="name == Qwen/Qwen3-Omni-30B-A3B-Instruct",
     )
 
-    chunk = TeacherChunk.model_validate_json(result["text"])  # type: ignore
-    # 强制覆盖 page 和 page_num，保证和拆页时一致
+    raw_text: str = result["text"]  # type: ignore
+
+    # 关键一步：先清掉非法控制字符
+    cleaned_text = clean_control_chars(raw_text)
+
+    try:
+        chunk = TeacherChunk.model_validate_json(cleaned_text)  # type: ignore
+    except ValidationError as e:
+        # 调试用：打印一小段（转成可见转义），方便排查后续问题
+        print(f"页面 {page_label} JSON 解析失败，返回内容前 200 字符：")
+        print(raw_text[:200].encode("unicode_escape").decode("utf-8"))
+        raise
+
     chunk.page = page_label
     chunk.page_num = page_num
     return chunk

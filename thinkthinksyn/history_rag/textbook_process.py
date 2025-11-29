@@ -300,7 +300,6 @@ def save_ocr_result_to_json(
 
 
 # ========= 原来的整本 demo（可留可删） =========
-
 async def demo_pdf_with_teacher():
     pdf_path = r"D:\Code\thinkthinksyn\thinkthinksyn\history_rag\data\stu_book\第1册_re.pdf"
     teacher_json_paths = [
@@ -324,8 +323,7 @@ async def demo_pdf_with_teacher():
     print("总页数:", len(ocr_result))
 
 
-# ========= 新增：只跑 4 页的 demo，用于验证 =========
-
+# ========= 只跑 4 页的 demo，用于验证 =========
 async def demo_pdf_with_teacher_4pages():
     pdf_path = r"D:\Code\thinkthinksyn\thinkthinksyn\history_rag\data\stu_book\第1册_re.pdf"
     teacher_json_paths = [
@@ -339,7 +337,7 @@ async def demo_pdf_with_teacher_4pages():
     # 加载多个教师教材 JSON 文件并合并
     teacher_chunks = load_teacher_chunks_from_multiple_json(teacher_json_paths)
 
-    # 只跑第 1~4 页（你可以修改为任何页码）
+    # 只跑第 1~4 页
     pages = [1, 2, 3, 4]
 
     ocr_result = await ocr_pdf_with_teacher(
@@ -363,8 +361,8 @@ async def demo_pdf_with_teacher_4pages():
 
 
 if __name__ == "__main__":
-    # 只想验证流程时，跑 4 页 demo：
+    # 跑 4 页 demo：
     asyncio.run(demo_pdf_with_teacher_4pages())
 
-    # 如果以后要整本跑，再改成：
+    # 整本跑：
     # asyncio.run(demo_pdf_with_teacher())
